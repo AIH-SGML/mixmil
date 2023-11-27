@@ -5,19 +5,7 @@ import torch
 from sklearn.linear_model import LogisticRegressionCV
 from tqdm.auto import trange
 
-
-def setup_scatter(Xs):
-    device = Xs[0].device
-    x = torch.cat(Xs, dim=0)
-    i = torch.cat([torch.full((x.shape[0],), idx) for idx, x in enumerate(Xs)]).to(device)
-    i_ptr = torch.cat([torch.tensor([0], device=device), i.bincount().cumsum(0)])
-    return x, i, i_ptr
-
-
-def xgower_factor(X):
-    a = np.power(X, 2).sum()
-    b = X.dot(X.sum(0)).sum()
-    return np.sqrt((a - b / X.shape[0]) / (X.shape[0] - 1))
+from mixmil.data import xgower_factor
 
 
 def regressOut(Y, X, return_b=False):
@@ -81,7 +69,7 @@ def get_lr_init_params(X, Y):
     return [torch.Tensor(el) for el in (mu_z, sd_z, var_z, alpha)]
 
 
-def list_to_tensor(listo):
+def _list2tensor(listo):
     return torch.Tensor(np.stack(listo, axis=1))
 
 
@@ -99,13 +87,13 @@ def get_init_params(Xs, F, Y, likelihood, n_trials):
 
     if likelihood == "binomial" and n_trials == 2:
         Xm = Xm.repeat(2, axis=0)
-        Fe = F.numpy().repeat(2, axis=0)
+        Fe = Fe.repeat(2, axis=0)
         to_expanded = np.array(([[0, 0], [1, 0], [1, 1]]))
-        Ye = to_expanded[Y.long().numpy().T].transpose(1, 2, 0).reshape(-1, 3)
+        Ye = to_expanded[Y.long().numpy().T].transpose(1, 2, 0).reshape(-1, Y.shape[1])
 
     if likelihood == "binomial":
         results = [get_binomial_init_params(Xm, Fe, Ye[:, p]) for p in trange(Ye.shape[1], desc="GLMM Init")]
-        results = [list_to_tensor(listo) for listo in zip(*results)]
+        results = [_list2tensor(listo) for listo in zip(*results)]
 
     else:
         results = get_lr_init_params(Xm, Ye)

@@ -4,8 +4,9 @@ from torch.distributions import Binomial, Categorical, LowRankMultivariateNormal
 from torch.distributions.kl import kl_divergence
 from torch_scatter import scatter_softmax, segment_add_csr
 
+from mixmil.data import setup_scatter
 from mixmil.posterior import GaussianVariationalPosterior
-from mixmil.utils import get_init_params, setup_scatter
+from mixmil.utils import get_init_params
 
 
 class MixMIL(torch.nn.Module):
@@ -77,17 +78,20 @@ class MixMIL(torch.nn.Module):
 
     def likelihood(self, logits, y):
         if self.likelihood_name == "binomial":
-            return Binomial(total_count=self.n_trials, logits=logits).log_prob(y[:, :, None]).mean()
+            return Binomial(total_count=self.n_trials, logits=logits).log_prob(y[:, :, None]).sum(1).mean()
         elif self.likelihood_name == "categorical":
             return Categorical(logits=logits.permute(0, 2, 1)).log_prob(y).mean()
 
-    def loss(self, xmil, f, y, kld_w=1.0):
+    def loss(self, xmil, f, y, kld_w=1.0, return_all=False):
         logits = f.mm(self.alpha)[:, :, None] + xmil
 
         ll = self.likelihood(logits, y)
         kld = kl_divergence(self.posterior_distribution, self.prior_distribution)
-        kld_term = kld_w * kld.mean() / y.shape[0]
-        return -ll + kld_term
+        kld_term = kld_w * kld.sum() / y.shape[0]
+        loss = -ll + kld_term
+        if return_all:
+            return dict(loss=loss, ll=ll, kld=kld_term)
+        return loss
 
     def get_betas(self, n_samples=None, predict=False):
         assert not (n_samples and predict)
