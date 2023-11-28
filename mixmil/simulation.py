@@ -15,52 +15,42 @@ def get_X(N=1_000, I=50, Q=30, N_test=200):
     return X
 
 
-def simulate(X, v_z=0.5, v_u=0.8, b=-1, F=None, P=1):
+def simulate(X, v_beta=0.5, v_gamma=0.8, b=-1, F=None):
     if F is None:
         F = torch.ones([X.shape[0], 1])
 
     # simulate single phenotype
+    P = 1
     b = b * torch.ones([1, P])
-    v_z = v_z * torch.ones(P)
-    v_u = v_u * torch.ones(P)
+    v_beta = v_beta * torch.ones(P)
+    v_gamma = v_gamma * torch.ones(P)
 
-    # sample u
-    beta_u = torch.randn((X.shape[2], v_u.shape[0]))
-    u = torch.einsum("nik,kp->nip", X, beta_u)
-    _scale_u = torch.sqrt(v_u / u.var([0, 1]))
-    beta_u = _scale_u[None, :] * beta_u
-    u = _scale_u[None, None, :] * u
+    # sample weights
+    gamma = torch.randn((X.shape[2], v_gamma.shape[0]))
+    _w = torch.einsum("nik,kp->nip", X, gamma)
+    _scale_w = torch.sqrt(v_gamma / _w.var([0, 1]))
+    gamma = _scale_w[None, :] * gamma
+    _w = _scale_w[None, None, :] * _w
 
-    w = torch.softmax(u, dim=1)
+    w = torch.softmax(_w, dim=1)
 
     # sample z
-    beta_z = torch.randn((X.shape[2], v_z.shape[0]))
-    beta_z = beta_z / torch.sqrt((beta_z**2).mean())
-    x = torch.einsum("nik,kp->nip", X, beta_z)
-    z = torch.einsum("nip,nip->np", w, x)
-    z = (z - z.mean(0)) / z.std(0)
-    z = torch.sqrt(v_z) * z
-    beta_z = torch.sqrt(v_z) * beta_z
+    beta = torch.randn((X.shape[2], v_beta.shape[0]))
+    beta = beta / torch.sqrt((beta**2).mean())
+    z = torch.einsum("nik,kp->nip", X, beta)
+    u = torch.einsum("nip,nip->np", w, z)
+    u = (u - u.mean(0)) / u.std(0)
+    u = torch.sqrt(v_beta) * u
+    beta = torch.sqrt(v_beta) * beta
 
     # compute rates
-    logits = F.mm(b) + z
+    logits = F.mm(b) + u
     probs = torch.sigmoid(logits)
 
     # sample Y
-    Y = torch.distributions.Binomial(2, logits=logits).sample().data.float()
+    Y = torch.distributions.Binomial(2, logits=logits).sample()
 
-    more = {
-        "u": u,
-        "w": w,
-        "x": x,
-        "xmil": z,
-        "logits": logits,
-        "probs": probs,
-        "beta_u": beta_u,
-        "beta_z": beta_z,
-    }
-
-    return Y, F, more
+    return F, Y, u, w
 
 
 def split_data(Xs, test_size=200, val_size=0.1, test_rs=127, val_rs=412):
@@ -85,13 +75,16 @@ def split_data(Xs, test_size=200, val_size=0.1, test_rs=127, val_rs=412):
     return outs
 
 
-def load_simulation(sim_seed=0):
+def load_simulation(sim_seed=0, P=1):
     np.random.seed(sim_seed)
     torch.manual_seed(sim_seed)
 
     X = get_X()
-    Ya, Fa, more = simulate(X)
-    data = [Ya, X, Fa, more["xmil"], more["w"]]
-    Y, X, F, xmil, w = split_data(data)
-    more = dict(xmil=xmil, w=w)
-    return X, Y, F, more
+    F, Y, u, w = zip(*[simulate(X) for _ in range(P)])
+    Y = torch.cat(Y, dim=1)
+    F = F[0]  # identical across phenotypes
+    u = torch.cat(u, dim=1)
+    w = torch.cat(w, dim=2)
+    data = [X, F, Y, u, w]
+    X, F, Y, u, w = split_data(data)
+    return X, F, Y, u, w

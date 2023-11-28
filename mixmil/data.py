@@ -58,8 +58,8 @@ def normalize_feats(X, norm_factor="std"):
 
 def load_data(dataset="simulation", seed=0):
     if dataset == "simulation":
-        X, Y, F, more = load_simulation(sim_seed=seed)
+        X, F, Y, u, w = load_simulation(sim_seed=seed, P=3)
         X = normalize_feats(X)
     else:
         raise ValueError(f"Unknown dataset: {dataset}")
-    return X, Y, F, more
+    return X, F, Y, u, w

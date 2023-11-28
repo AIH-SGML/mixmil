@@ -24,7 +24,14 @@ class MixMIL(torch.nn.Module):
         - Q (int): The dimension of the latent space.
         - K (int): The number of fixed effects.
         - P (int): The number of outputs.
+        - likelihood (str, optional): The likelihood to use. Either "binomial" or "categorical". Default is "binomial".
+        - n_trials (int, optional): Number of trials for binomial likelihood. Not used for categorical. Default is 2.
         - mean_field (bool, optional): Toggle mean field approximation for the posterior. Default is False.
+        - init_params (tuple, optional): Tuple of (mean, var, var_z, alpha) to initialize the model. Default is None.
+            mean (torch.Tensor): The mean of the posterior.
+            var (torch.Tensor): The variance of the posterior.
+            var_z (torch.Tensor): The \sigma_{\beta}^2 hparam of the prior.
+            alpha (torch.Tensor): The fixed effect parameters.
         """
         super().__init__()
         self.Q = Q
@@ -82,14 +89,14 @@ class MixMIL(torch.nn.Module):
         elif self.likelihood_name == "categorical":
             return Categorical(logits=logits.permute(0, 2, 1)).log_prob(y).mean()
 
-    def loss(self, xmil, f, y, kld_w=1.0, return_all=False):
-        logits = f.mm(self.alpha)[:, :, None] + xmil
+    def loss(self, u, f, y, kld_w=1.0, return_dict=False):
+        logits = f.mm(self.alpha)[:, :, None] + u
 
         ll = self.likelihood(logits, y)
         kld = kl_divergence(self.posterior_distribution, self.prior_distribution)
         kld_term = kld_w * kld.sum() / y.shape[0]
         loss = -ll + kld_term
-        if return_all:
+        if return_dict:
             return dict(loss=loss, ll=ll, kld=kld_term)
         return loss
 
@@ -104,60 +111,62 @@ class MixMIL(torch.nn.Module):
             beta_z = self.qz_mu[:, :, None]
         return beta_u, beta_z
 
-    def calc_xmil(self, Xs, n_samples=8, scaling=None, predict=False):
+    def forward(self, Xs, n_samples=8, scaling=None, predict=False):
         beta_u, beta_z = self.get_betas(n_samples, predict)
         b = torch.sqrt((beta_z**2).mean(0, keepdim=True))
         eta = beta_z / b
 
         if torch.is_tensor(Xs):
-            xmil = self._calc_xmil_tensor(beta_u, eta, Xs)
+            u = self._calc_bag_emb_effect_tensor(beta_u, eta, Xs)
         else:
-            xmil = self._calc_xmil_scatter(beta_u, eta, Xs)
+            u = self._calc_bag_emb_effect_scatter(beta_u, eta, Xs)
 
-        mean, std = (xmil.mean(0), xmil.std(0)) if scaling is None else scaling
+        mean, std = (u.mean(0), u.std(0)) if scaling is None else scaling
         if std.isnan().any():
             std = 1
-        xmil = b * (xmil - mean) / std
-        return xmil
+        u = b * (u - mean) / std
+        return u
 
-    def forward(self, *args, **kwargs):
-        return self.calc_xmil(*args, **kwargs)
+    def _calc_bag_emb_effect_tensor(self, beta_u, eta, Xs):
+        _w = torch.einsum("niq,qps->nips", Xs, beta_u)
+        w = torch.softmax(_w, dim=1)
+        t = torch.einsum("niq,qps->nips", Xs, eta)
+        u = torch.einsum("nips,nips->nps", w, t)
+        return u
 
-    def _calc_xmil_tensor(self, beta_u, eta, Xs):
-        u = torch.einsum("niq,qps->nips", Xs, beta_u)
-        w = torch.softmax(u, dim=1)
-        z = torch.einsum("niq,qps->nips", Xs, eta)
-        xmil = torch.einsum("nips,nips->nps", w, z)
-        return xmil
-
-    def _calc_xmil_scatter(self, beta_u, eta, Xs):
+    def _calc_bag_emb_effect_scatter(self, beta_u, eta, Xs):
         x, i, i_ptr = setup_scatter(Xs)
 
-        u = torch.einsum("iq,qps->ips", x, beta_u)
-        w = scatter_softmax(u, i, dim=0)
-        z = torch.einsum("iq,qps->ips", x, eta)
-        xmil = segment_add_csr(w * z, i_ptr)
-        return xmil
+        _w = torch.einsum("iq,qps->ips", x, beta_u)
+        w = scatter_softmax(_w, i, dim=0)
+        t = torch.einsum("iq,qps->ips", x, eta)
+        u = segment_add_csr(w * t, i_ptr)
+        return u
 
     @torch.inference_mode()
     def predict(self, Xs):
-        return self.calc_xmil(Xs, n_samples=None, predict=True).squeeze(2)
+        return self(Xs, n_samples=None, predict=True).squeeze(2)
 
     @torch.inference_mode()
     def get_weights(self, Xs, ravel=False):
+        """Get instance weights after and before softmax"""
         beta_u, _ = self.get_betas(predict=True)
+        beta_u = beta_u.squeeze(2)  # not taking mcmc samples
         if torch.is_tensor(Xs):
-            u = torch.einsum("niq,qps->nips", Xs, beta_u)
-            w = torch.softmax(u, dim=1)
+            _w = torch.einsum("niq,qp->nip", Xs, beta_u)
+            w = torch.softmax(_w, dim=1)
 
         else:
-            x, i, _ = self.setup_scatter(Xs)
-            u = torch.einsum("iq,qps->ips", x, beta_u)
-            w = scatter_softmax(u, i, dim=0)
+            x, i, _ = setup_scatter(Xs)
+            _w = torch.einsum("iq,qp->ip", x, beta_u)
+            w = scatter_softmax(_w, i, dim=0)
 
         if ravel:
-            w, u = w.ravel(), u.ravel()
-        return w, u
+            w, _w = w.ravel(), _w.ravel()
+        elif not torch.is_tensor(Xs):
+            _w = [_w[i == idx] for idx in range(len(Xs))]
+            w = [w[i == idx] for idx in range(len(Xs))]
+        return w, _w
 
 
 if __name__ == "__main__":
