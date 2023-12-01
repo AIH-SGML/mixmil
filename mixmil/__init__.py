@@ -1,3 +1,3 @@
 from mixmil.model import MixMIL
 
-__all__ = ["mixmil", "utils", "likelihood", "posterior", "data", "simulation"]
+__all__ = ["MixMIL", "utils", "likelihood", "posterior", "data", "simulation", "paths"]

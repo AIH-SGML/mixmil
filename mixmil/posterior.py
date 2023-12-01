@@ -24,6 +24,10 @@ def get_params(vc_mean, vc_sd, n_outs, n_vars, mean_field):
 class GaussianVariationalPosterior(torch.nn.Module):
     def __init__(self, n_vars, n_outs, mean_field=True, init_params=None):
         super().__init__()
+        self.n_vars = n_vars
+        self.n_outs = n_outs
+        self.mean_field = mean_field
+
         if init_params is not None:
             mu_z, sd_z, *_ = init_params
             mu_z = mu_z.T
@@ -52,3 +56,6 @@ class GaussianVariationalPosterior(torch.nn.Module):
 
     def sample(self, n_samples):
         return self.distribution.rsample([n_samples]).permute([2, 1, 0])
+
+    def extra_repr(self) -> str:
+        return f"n_vars={self.n_vars}, n_outs={self.n_outs}, mean_field={self.mean_field}"

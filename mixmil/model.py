@@ -2,9 +2,11 @@ import numpy as np
 import torch
 from torch.distributions import Binomial, Categorical, LowRankMultivariateNormal
 from torch.distributions.kl import kl_divergence
+from torch.utils.data import DataLoader
 from torch_scatter import scatter_softmax, segment_add_csr
+from tqdm.auto import trange
 
-from mixmil.data import setup_scatter
+from mixmil.data import MILDataset, mil_collate_fn, setup_scatter
 from mixmil.posterior import GaussianVariationalPosterior
 from mixmil.utils import get_init_params
 
@@ -58,7 +60,7 @@ class MixMIL(torch.nn.Module):
             likelihood == "categorical"
         ), f"n_trials must be 1 or 2 to initialize with binomial mean model, got {n_trials=} and {likelihood=}"
         init_params = get_init_params(Xs, F, Y, likelihood, n_trials)
-        Q, K, P = Xs[0].shape[1], F.shape[1], Y.shape[1]
+        Q, K, P = Xs[0].shape[1], F.shape[1], init_params[0].shape[1]
         return MixMIL(Q, K, P, likelihood, n_trials, mean_field, init_params)
 
     @property
@@ -87,7 +89,10 @@ class MixMIL(torch.nn.Module):
         if self.likelihood_name == "binomial":
             return Binomial(total_count=self.n_trials, logits=logits).log_prob(y[:, :, None]).sum(1).mean()
         elif self.likelihood_name == "categorical":
-            return Categorical(logits=logits.permute(0, 2, 1)).log_prob(y).mean()
+            logits = logits.permute(0, 2, 1)
+            if logits.shape[-1] == 1:
+                logits = torch.cat([-logits, logits], 2)
+            return Categorical(logits=logits).log_prob(y).mean()
 
     def loss(self, u, f, y, kld_w=1.0, return_dict=False):
         logits = f.mm(self.alpha)[:, :, None] + u
@@ -97,7 +102,7 @@ class MixMIL(torch.nn.Module):
         kld_term = kld_w * kld.sum() / y.shape[0]
         loss = -ll + kld_term
         if return_dict:
-            return dict(loss=loss, ll=ll, kld=kld_term)
+            return loss, dict(loss=loss.item(), ll=ll.item(), kld=kld_term.item())
         return loss
 
     def get_betas(self, n_samples=None, predict=False):
@@ -143,6 +148,29 @@ class MixMIL(torch.nn.Module):
         u = segment_add_csr(w * t, i_ptr)
         return u
 
+    def train(self, X, F, Y, n_epochs=2_000, batch_size=64, lr=1e-3, verbose=True):
+        train_loader = DataLoader(
+            MILDataset(X, F, Y),
+            shuffle=True,
+            batch_size=batch_size,
+            collate_fn=None if torch.is_tensor(X) else mil_collate_fn,
+        )
+        optim = torch.optim.Adam(lr=lr, params=self.parameters())
+
+        history = []
+        for epoch in trange(1, n_epochs + 1, desc="Epoch", disable=not verbose):
+            for step, (xs, f, y) in enumerate(train_loader):
+                kld_w = len(xs) / len(Y)
+                pred = self(xs)
+                loss, ldict = self.loss(pred, f, y, kld_w=kld_w, return_dict=True)
+                ldict["epoch"] = epoch
+                ldict["step"] = step
+                history.append(ldict)
+                optim.zero_grad()
+                loss.backward()
+                optim.step()
+        return history
+
     @torch.inference_mode()
     def predict(self, Xs):
         return self(Xs, n_samples=None, predict=True).squeeze(2)
@@ -168,41 +196,9 @@ class MixMIL(torch.nn.Module):
             w = [w[i == idx] for idx in range(len(Xs))]
         return w, _w
 
+    def extra_repr(self):
+        return f"Q={self.Q}, K={self.alpha.shape[0]}, P={self.alpha.shape[1]}, likelihood={self.likelihood_name}"
+
 
 if __name__ == "__main__":
-    I = 10
-    N = 50
-    Q = 30
-    P = 3
-    K = 2
-    Xsl = [torch.rand(I, Q) for _ in range(N)]
-    Xst = torch.cat([t.reshape(1, I, Q) for t in Xsl], dim=0)
-    F = torch.rand(N, K)
-    Y = torch.randint(0, 2, (N, P))
-    model = MixMIL.init_with_mean_model(Xst, F, Y, likelihood="binomial", mean_field=False)
-    model.predict(Xst)
-    pred = model(Xst)
-    loss = model.loss(pred, F, Y)
-    loss.backward()
-
-    model = MixMIL.init_with_mean_model(Xsl, F, Y, likelihood="binomial", mean_field=False)
-    model.predict(Xsl)
-    pred = model(Xsl)
-    loss = model.loss(pred, F, Y)
-    loss.backward()
-
-    I = 10
-    N = 50
-    Q = 30
-    P = 1
-    K = 1
-    Xsl = [torch.rand(I, Q) for _ in range(N)]
-    Xst = torch.cat([t.reshape(1, I, Q) for t in Xsl], dim=0)
-    F = torch.rand(N, K)
-    Y = torch.randint(0, 5, (N, 1))
-    model = MixMIL.init_with_mean_model(Xst, F, Y, likelihood="categorical", mean_field=False)
-    model.predict(Xst)
-    pred = model(Xst)
-    loss = model.loss(pred, F, Y)
-    loss.backward()
-    print("DONE")
+    pass

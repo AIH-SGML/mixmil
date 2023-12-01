@@ -15,13 +15,13 @@ def get_X(N=1_000, I=50, Q=30, N_test=200):
     return X
 
 
-def simulate(X, v_beta=0.5, v_gamma=0.8, b=-1, F=None):
+def simulate(X, v_beta=0.5, v_gamma=0.8, b=-1, F=None, P=1):
     if F is None:
         F = torch.ones([X.shape[0], 1])
 
     # simulate single phenotype
-    P = 1
-    b = b * torch.ones([1, P])
+    K = F.shape[1]
+    b = b * torch.ones([K, P])
     v_beta = v_beta * torch.ones(P)
     v_gamma = v_gamma * torch.ones(P)
 
@@ -36,7 +36,7 @@ def simulate(X, v_beta=0.5, v_gamma=0.8, b=-1, F=None):
 
     # sample z
     beta = torch.randn((X.shape[2], v_beta.shape[0]))
-    beta = beta / torch.sqrt((beta**2).mean())
+    beta = beta / torch.sqrt((beta**2).mean(0, keepdim=True))
     z = torch.einsum("nik,kp->nip", X, beta)
     u = torch.einsum("nip,nip->np", w, z)
     u = (u - u.mean(0)) / u.std(0)
@@ -45,7 +45,6 @@ def simulate(X, v_beta=0.5, v_gamma=0.8, b=-1, F=None):
 
     # compute rates
     logits = F.mm(b) + u
-    probs = torch.sigmoid(logits)
 
     # sample Y
     Y = torch.distributions.Binomial(2, logits=logits).sample()
@@ -75,16 +74,11 @@ def split_data(Xs, test_size=200, val_size=0.1, test_rs=127, val_rs=412):
     return outs
 
 
-def load_simulation(sim_seed=0, P=1):
-    np.random.seed(sim_seed)
-    torch.manual_seed(sim_seed)
+def load_simulation(seed=0, N=1_000, I=50, Q=30, N_test=200, P=1, v_beta=0.5, v_gamma=0.8, b=-1, F=None):
+    np.random.seed(seed)
+    torch.manual_seed(seed)
 
-    X = get_X()
-    F, Y, u, w = zip(*[simulate(X) for _ in range(P)])
-    Y = torch.cat(Y, dim=1)
-    F = F[0]  # identical across phenotypes
-    u = torch.cat(u, dim=1)
-    w = torch.cat(w, dim=2)
-    data = [X, F, Y, u, w]
-    X, F, Y, u, w = split_data(data)
+    X = get_X(N, I, Q, N_test)
+    data = simulate(X, v_beta, v_gamma, b, F, P)
+    X, F, Y, u, w = split_data((X, *data))
     return X, F, Y, u, w
