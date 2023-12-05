@@ -30,10 +30,11 @@ class MixMIL(torch.nn.Module):
         - n_trials (int, optional): Number of trials for binomial likelihood. Not used for categorical. Default is 2.
         - mean_field (bool, optional): Toggle mean field approximation for the posterior. Default is False.
         - init_params (tuple, optional): Tuple of (mean, var, var_z, alpha) to initialize the model. Default is None.
-            mean (torch.Tensor): The mean of the posterior.
-            var (torch.Tensor): The variance of the posterior.
+            mean (torch.Tensor): The mean of the posterior. Shape: (Q, P). d
+            var (torch.Tensor): The variance of the posterior. Shape: (Q, P).
             var_z (torch.Tensor): The \sigma_{\beta}^2 hparam of the prior.
-            alpha (torch.Tensor): The fixed effect parameters.
+                Shape: (1, P) with separate and (1, 1) with shared priors .
+            alpha (torch.Tensor): The fixed effect parameters. Shape: (K, P).
         """
         super().__init__()
         self.Q = Q
@@ -54,10 +55,11 @@ class MixMIL(torch.nn.Module):
 
         self.likelihood_name = likelihood
         self.n_trials = n_trials if likelihood == "binomial" else None
+        self.is_trained = False
 
-    def init_with_mean_model(Xs, F, Y, likelihood="binomial", n_trials=2, mean_field=False):
+    def init_with_mean_model(Xs, F, Y, likelihood="binomial", n_trials=None, mean_field=False):
         assert (likelihood == "binomial" and n_trials is not None and 0 < n_trials <= 2) or (
-            likelihood == "categorical"
+            likelihood == "categorical" and n_trials is None
         ), f"n_trials must be 1 or 2 to initialize with binomial mean model, got {n_trials=} and {likelihood=}"
         init_params = get_init_params(Xs, F, Y, likelihood, n_trials)
         Q, K, P = Xs[0].shape[1], F.shape[1], init_params[0].shape[1]
@@ -160,15 +162,15 @@ class MixMIL(torch.nn.Module):
         history = []
         for epoch in trange(1, n_epochs + 1, desc="Epoch", disable=not verbose):
             for step, (xs, f, y) in enumerate(train_loader):
-                kld_w = len(xs) / len(Y)
-                pred = self(xs)
-                loss, ldict = self.loss(pred, f, y, kld_w=kld_w, return_dict=True)
-                ldict["epoch"] = epoch
-                ldict["step"] = step
+                u = self(xs)
+                loss, ldict = self.loss(u, f, y, kld_w=len(xs) / len(Y), return_dict=True)
+                ldict["epoch"], ldict["step"] = epoch, step
                 history.append(ldict)
                 optim.zero_grad()
                 loss.backward()
                 optim.step()
+
+        is_trained = True
         return history
 
     @torch.inference_mode()
@@ -197,7 +199,15 @@ class MixMIL(torch.nn.Module):
         return w, _w
 
     def extra_repr(self):
-        return f"Q={self.Q}, K={self.alpha.shape[0]}, P={self.alpha.shape[1]}, likelihood={self.likelihood_name}"
+        string = f"Q={self.Q}, K={self.alpha.shape[0]}, P={self.alpha.shape[1]}, likelihood={self.likelihood_name}"
+        if self.likelihood_name == "binomial":
+            string += f", n_trials={self.n_trials}"
+        if self.is_trained:
+            string += ", trained=True"
+        string += f"\n(alpha): Parameter(shape={tuple(self.alpha.shape)})\n"
+        string += f"(log_sigma_u): Parameter(shape={tuple(self.log_sigma_u.shape)})\n"
+        string += f"(log_sigma_z): Parameter(shape={tuple(self.log_sigma_z.shape)})"
+        return string
 
 
 if __name__ == "__main__":

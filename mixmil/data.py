@@ -39,7 +39,7 @@ def mil_collate_fn(batch):
     X = [item[0] for item in batch]
     F = torch.stack([item[1] for item in batch])
     Y = torch.stack([item[2] for item in batch])
-    return X, Y, F
+    return X, F, Y
 
 
 def normalize_feats(X, norm_factor="std"):

@@ -58,4 +58,4 @@ class GaussianVariationalPosterior(torch.nn.Module):
         return self.distribution.rsample([n_samples]).permute([2, 1, 0])
 
     def extra_repr(self) -> str:
-        return f"n_vars={self.n_vars}, n_outs={self.n_outs}, mean_field={self.mean_field}"
+        return f"n_vars=2*{self.n_vars//2}, n_outs={self.n_outs}, mean_field={self.mean_field}"
