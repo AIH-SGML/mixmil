@@ -174,8 +174,8 @@ class MixMIL(torch.nn.Module):
         return history
 
     @torch.inference_mode()
-    def predict(self, Xs):
-        return self(Xs, n_samples=None, predict=True).squeeze(2)
+    def predict(self, Xs, scaling=None):
+        return self(Xs, n_samples=None, predict=True, scaling=scaling).squeeze(2)
 
     @torch.inference_mode()
     def get_weights(self, Xs, ravel=False):

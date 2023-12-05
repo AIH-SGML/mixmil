@@ -86,13 +86,6 @@ def _list2tensor(_list):
 
 
 def get_init_params(Xs, F, Y, likelihood, n_trials):
-    # if likelihood == "categorical":
-    #     idx = np.concatenate([np.full(x.shape[0], i) for i, x in enumerate(Xs)], axis=0)
-    #     Fi = np.concatenate([F[[i]] for i in idx], axis=0)
-    #     Xi = np.concatenate(Xs, axis=0) if isinstance(Xs, list) else Xs.reshape(-1, Xs.shape[-1])
-    #     Xi, b, Fiv = regressOut(Xi, Fi, return_b=True, return_pinv=True)
-    #     Xs = [Xi[idx == i] for i in range(idx.max() + 1)]
-
     Xm = np.concatenate([x.mean(0, keepdims=True) for x in Xs], axis=0)
     Fe, Ye = F.numpy(), Y.long().numpy()
 
