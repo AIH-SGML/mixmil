@@ -45,14 +45,12 @@ DATASET_URLS = {
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "--dataset", type=str, default="camelyon16", help="Dataset to be downloaded: camelyon16"
-    )
+    parser.add_argument("--dataset", type=str, default="camelyon16", help="Dataset to be downloaded: camelyon16")
     parser.add_argument("--keep-zip", action="store_true", help="Keep the downloaded zip file")
     args = parser.parse_args()
 
     assert args.dataset in DATASET_URLS, f"Dataset {args.dataset} not found"
-    
+
     print(f"downloading dataset: {args.dataset}")
     unzip_dir = f"data/{args.dataset}"
     zip_file_path = f"data/{args.dataset}-dataset.zip"
