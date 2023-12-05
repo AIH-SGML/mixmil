@@ -24,4 +24,4 @@ line-length = 120
 ignore = ["E741"]
 
 [tool.setuptools.packages.find]
-exclude = ["scripts", "data", "test"]
+exclude = ["scripts", "data", "test", "experiments"]

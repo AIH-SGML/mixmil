@@ -52,8 +52,7 @@ def simulate(X, v_beta=0.5, v_gamma=0.8, b=-1, F=None, P=1):
     return F, Y, u, w
 
 
-def split_data(Xs, test_size=200, val_size=0.1, test_rs=127, val_rs=412):
-    # define indices
+def split_data(Xs, test_size=200, val_size=0.0, test_rs=127, val_rs=412):
     idxs_all = np.arange(Xs[0].shape[0])
     idxs = {}
     idxs["train_val"], idxs["test"] = train_test_split(idxs_all, test_size=test_size, random_state=test_rs)
@@ -70,11 +69,10 @@ def split_data(Xs, test_size=200, val_size=0.1, test_rs=127, val_rs=412):
         for key in idxs.keys():
             out[key] = X[idxs[key]]
         outs.append(out)
-
     return outs
 
 
-def load_simulation(seed=0, N=1_000, I=50, Q=30, N_test=200, P=1, v_beta=0.5, v_gamma=0.8, b=-1, F=None):
+def load_simulation(seed=42, N=1_000, I=50, Q=30, N_test=200, P=1, v_beta=0.5, v_gamma=0.8, b=-1, F=None):
     np.random.seed(seed)
     torch.manual_seed(seed)
 

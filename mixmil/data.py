@@ -42,10 +42,9 @@ def mil_collate_fn(batch):
     return X, F, Y
 
 
-def normalize_feats(X, norm_factor="std"):
+def normalize_feats(X, norm_factor="std_sqrt"):
     assert norm_factor in ["std", "std_sqrt"]
-
-    train_data = torch.cat(X["train"], dim=0) if isinstance(X["train"], list) else X["train"]
+    train_data = torch.cat(X["train"], dim=0) if isinstance(X["train"], list) else X["train"].reshape(-1, X["train"].shape[2])
     mean = train_data.mean(0, keepdims=True)
     std = train_data.std(0, keepdims=True)
     factor = std * np.sqrt(train_data.shape[1]) if norm_factor == "std_sqrt" else std
@@ -56,10 +55,10 @@ def normalize_feats(X, norm_factor="std"):
     return X
 
 
-def load_data(dataset="simulation", **kwargs):
+def load_data(dataset="simulation", norm_factor="std_sqrt", **kwargs):
     if dataset == "simulation":
         X, F, Y, u, w = load_simulation(**kwargs)
-        X = normalize_feats(X)
+        X = normalize_feats(X, norm_factor)
     else:
         raise ValueError(f"Unknown dataset: {dataset}")
     return X, F, Y, u, w

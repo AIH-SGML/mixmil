@@ -202,8 +202,7 @@ class MixMIL(torch.nn.Module):
         string = f"Q={self.Q}, K={self.alpha.shape[0]}, P={self.alpha.shape[1]}, likelihood={self.likelihood_name}"
         if self.likelihood_name == "binomial":
             string += f", n_trials={self.n_trials}"
-        if self.is_trained:
-            string += ", trained=True"
+        string += f", device={self.alpha.device}, trained={self.is_trained}"
         string += f"\n(alpha): Parameter(shape={tuple(self.alpha.shape)})\n"
         string += f"(log_sigma_u): Parameter(shape={tuple(self.log_sigma_u.shape)})\n"
         string += f"(log_sigma_z): Parameter(shape={tuple(self.log_sigma_z.shape)})"

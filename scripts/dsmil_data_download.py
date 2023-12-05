@@ -39,8 +39,6 @@ def unzip_data(zip_path, data_path):
 
 
 DATASET_URLS = {
-    "classic": "https://uwmadison.box.com/shared/static/arvv7f1k8c2m8e2hugqltxgt9zbbpbh2.zip",
-    "tcga": "https://uwmadison.box.com/shared/static/tze4yqclajbdzjwxyb8b1umfwk9vcdwq.zip",
     "camelyon16": "https://uwmadison.box.com/shared/static/l9ou15iwup73ivdjq0bc61wcg5ae8dwe.zip",
 }
 
@@ -48,11 +46,13 @@ DATASET_URLS = {
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "--dataset", type=str, default="classic", help="Dataset to be downloaded: classic, tcga, camelyon16"
+        "--dataset", type=str, default="camelyon16", help="Dataset to be downloaded: camelyon16"
     )
     parser.add_argument("--keep-zip", action="store_true", help="Keep the downloaded zip file")
     args = parser.parse_args()
 
+    assert args.dataset in DATASET_URLS, f"Dataset {args.dataset} not found"
+    
     print(f"downloading dataset: {args.dataset}")
     unzip_dir = f"data/{args.dataset}"
     zip_file_path = f"data/{args.dataset}-dataset.zip"
