@@ -5,10 +5,23 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "mixmil"
 version = "0.0.1"
-dependencies = []
+dependencies = [
+    "statsmodels",
+    "numpy",
+    "torch",
+    "torch_scatter",
+    "scipy",
+    "scikit-learn",
+    "tqdm",
+    "statsmodels",
+]
 
 [tool.black]
 line-length = 120
 
 [tool.ruff]
 line-length = 120
+ignore = ["E741"]
+
+[tool.setuptools.packages.find]
+exclude = ["scripts", "data", "test", "experiments"]
