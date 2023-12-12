@@ -3,7 +3,14 @@ Code for the paper: [Attention-based Multi-instance Mixed Models](https://arxiv.
 
 Please raise an issue for questions and bug-reports.
 ## Installation
+Install with:
 ```
+pip install mixmil
+```
+or if you want to adapt the code:
+```
+git clone https://github.com/AIH-SGML/mixmil.git
+cd mixmil
 pip install -e .
 ```
 To enable computations on GPU please follow the installation instructions of [PyTorch](https://pytorch.org/) and [PyTorch Scatter](https://github.com/rusty1s/pytorch_scatter).
