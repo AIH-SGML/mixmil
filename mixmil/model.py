@@ -19,8 +19,7 @@ class MixMIL(torch.nn.Module):
     """
 
     def __init__(self, Q, K, P=1, likelihood="binomial", n_trials=2, mean_field=False, init_params=None):
-        """
-        Initialize the MixMil class.
+        r"""Initialize the MixMil class.
 
         Parameters:
         - Q (int): The dimension of the latent space.
@@ -32,7 +31,7 @@ class MixMIL(torch.nn.Module):
         - init_params (tuple, optional): Tuple of (mean, var, var_z, alpha) to initialize the model. Default is None.
             mean (torch.Tensor): The mean of the posterior. Shape: (Q, P). d
             var (torch.Tensor): The variance of the posterior. Shape: (Q, P).
-            var_z (torch.Tensor): The \sigma_{\beta}^2 hparam of the prior.
+            var_z (torch.Tensor): The $\sigma_{\beta}^2$ hparam of the prior.
                 Shape: (1, P) with separate and (1, 1) with shared priors .
             alpha (torch.Tensor): The fixed effect parameters. Shape: (K, P).
         """
@@ -170,7 +169,7 @@ class MixMIL(torch.nn.Module):
                 loss.backward()
                 optim.step()
 
-        is_trained = True
+        self.is_trained = True
         return history
 
     @torch.inference_mode()
@@ -207,7 +206,3 @@ class MixMIL(torch.nn.Module):
         string += f"(log_sigma_u): Parameter(shape={tuple(self.log_sigma_u.shape)})\n"
         string += f"(log_sigma_z): Parameter(shape={tuple(self.log_sigma_z.shape)})"
         return string
-
-
-if __name__ == "__main__":
-    pass
