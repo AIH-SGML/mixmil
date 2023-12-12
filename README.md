@@ -7,11 +7,15 @@ Install with:
 ```
 pip install mixmil
 ```
+alternatively, if you want to include the optional experiment and test dependencies use:
+```
+pip install "mixmil[experiments,test]"
+```
 or if you want to adapt the code:
 ```
 git clone https://github.com/AIH-SGML/mixmil.git
 cd mixmil
-pip install -e .
+pip install -e ".[experiments,test]"
 ```
 To enable computations on GPU please follow the installation instructions of [PyTorch](https://pytorch.org/) and [PyTorch Scatter](https://github.com/rusty1s/pytorch_scatter).
 MixMIL works e.g. with PyTorch 2.1.
