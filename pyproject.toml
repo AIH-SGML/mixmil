@@ -1,7 +1,7 @@
 [project]
 name = "mixmil"
 dynamic = ["version"]
-description = "Code for the paper: Attention-based Multi-instance Mixed Models"
+description = "Attention-based Multi-instance Mixed Models"
 readme = "README.md"
 license.file = "LICENSE"
 authors = [
@@ -9,7 +9,6 @@ authors = [
     { name = "Alessandro Palma", email = "alessandro.palma@helmholtz-munich.de" },
     { name = "Paolo Casale", email = "francescopaolo.casale@helmholtz-munich.de" },
 ]
-
 dependencies = [
     "numpy>=1.22.0",
     "torch>=1.4.0",
@@ -20,7 +19,6 @@ dependencies = [
     "statsmodels>=0.11.0",
 ]
 requires-python = ">=3.9"
-
 classifiers = [
     "Development Status :: 3 - Alpha",
     "License :: OSI Approved :: Apache Software License",
@@ -37,10 +35,16 @@ classifiers = [
     "Operating System :: Microsoft :: Windows",
     "Operating System :: POSIX :: Linux",
 ]
+
 [project.urls]
 Homepage = "https://github.com/AIH-SGML/MixMIL"
 "Bug Tracker" = "https://github.com/AIH-SGML/MixMIL/issues"
 Discussions = "https://github.com/AIH-SGML/MixMIL/discussions"
+
+[project.optional-dependencies]
+experiments = ["anndata>=0.8.0", "jupyterlab>=3.0.0"]
+test = ["pytest>=6.0.0"]
+all = ["mixmil[experiments,test]"]
 
 [build-system]
 requires = ["hatchling"]
