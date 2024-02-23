@@ -22,14 +22,16 @@ MixMIL works e.g. with PyTorch 2.1.
 ## Experiments
 See the notebooks in the `experiments` folder for examples on how to run the simulation and histopathology experiments.
 
+Make sure the `experiments` requirements are installed:
+```
+pip install "mixmil[experiments]"
+```
 ### Histopathology
-Install `anndata` (`pip install anndata`) to run the notebook. 
-
+The histopathology experiment was performed on the [CAMELYON16](https://camelyon16.grand-challenge.org/) dataset.
 #### Download Data
 To download the embeddings provided by the DSMIL authors, either:
 - Full embeddings: `python scripts/dsmil_data_download.py`
 - PCA reduced embeddings: [Google Drive](https://drive.google.com/drive/folders/1X9ho1_W5ixyHSw_2hCfQsBb5nzkjMviA?usp=sharing)
-
 
 ## Citation
 ```
