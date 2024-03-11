@@ -1,5 +1,7 @@
 # MixMIL
-Code for the paper: [Attention-based Multi-instance Mixed Models](https://arxiv.org/abs/2311.02455)
+Code for the paper: [Mixed Models with Multiple Instance Learning](https://arxiv.org/abs/2311.02455)
+
+Accepted at AISTATS 24 as an oral presentation.
 
 Please raise an issue for questions and bug-reports.
 ## Installation
