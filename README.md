@@ -35,6 +35,13 @@ To download the embeddings provided by the DSMIL authors, either:
 - Full embeddings: `python scripts/dsmil_data_download.py`
 - PCA reduced embeddings: [Google Drive](https://drive.google.com/drive/folders/1X9ho1_W5ixyHSw_2hCfQsBb5nzkjMviA?usp=sharing)
 
+### Microscopy 
+The full BBBC021 dataset can be downloaded [here](https://bbbc.broadinstitute.org/BBBC021). 
+#### Download Data
+- We make the featurized cells available at [BBBC021](https://drive.google.com/file/d/1LEW74HUaJ2BMlPMmUlYMrsCFTmbpR2Rd/view?usp=drive_link)
+- The features are stored as an [AnnData](https://anndata.readthedocs.io/en/latest/) object. We recommend using the [scanpy](https://scanpy.readthedocs.io/en/stable/) package to read and process them
+- The weights of the featurizer trained with the SimCLR algorithm can be downloaded from the original [GitHub repository](https://github.com/SamriddhiJain/SimCLR-for-cell-profiling?tab=readme-ov-file)
+
 ## Citation
 ```
 @misc{engelmann2023attentionbased,
