@@ -1,7 +1,7 @@
 # MixMIL
 Code for the paper: [Mixed Models with Multiple Instance Learning](https://arxiv.org/abs/2311.02455)
 
-Accepted at AISTATS 24 as an oral presentation.
+Accepted at AISTATS 24 as an oral presentation & [Outstanding Student Paper Highlight](https://aistats.org/aistats2024/awards.html).
 
 Please raise an issue for questions and bug-reports.
 ## Installation
