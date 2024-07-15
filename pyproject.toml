@@ -37,9 +37,9 @@ classifiers = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/AIH-SGML/MixMIL"
-"Bug Tracker" = "https://github.com/AIH-SGML/MixMIL/issues"
-Discussions = "https://github.com/AIH-SGML/MixMIL/discussions"
+Homepage = "https://github.com/AIH-SGML/mixmil"
+"Bug Tracker" = "https://github.com/AIH-SGML/mixmil/issues"
+Discussions = "https://github.com/AIH-SGML/mixmil/discussions"
 
 [project.optional-dependencies]
 experiments = ["anndata>=0.8.0", "jupyterlab>=3.0.0"]

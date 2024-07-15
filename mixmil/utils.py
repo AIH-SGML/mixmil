@@ -53,7 +53,7 @@ def get_lr_init_params(X, Y, b, Fiv):
         penalty="l2",
         multi_class="multinomial",
         solver="lbfgs",
-        n_jobs=8,
+        n_jobs=1,
         verbose=0,
         random_state=42,
         max_iter=1000,
@@ -76,7 +76,7 @@ def get_lr_init_params(X, Y, b, Fiv):
     alpha = Fiv.dot(np.ones((Fiv.shape[1], 1))).dot(alpha) - b.dot(mu_beta)
 
     # init prior
-    var_z = (mu_beta**2 + sd_beta**2).mean().reshape(1, 1)
+    var_z = (mu_beta**2 + sd_beta**2).mean(axis=0, keepdims=True)
 
     return [torch.Tensor(el) for el in (mu_beta, sd_beta, var_z, alpha)]
 
