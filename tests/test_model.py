@@ -26,6 +26,7 @@ def mock_data_categorical():
 def test_init_with_mean_model_binomial(mock_data_binomial):
     Xs, F, Y = mock_data_binomial
     model = MixMIL.init_with_mean_model(Xs, F, Y, likelihood="binomial", n_trials=2)
+    model.train(Xs, F, Y, n_epochs=3)
     assert isinstance(model, MixMIL)
     assert model.likelihood_name == "binomial"
     assert model.n_trials == 2
@@ -35,6 +36,7 @@ def test_init_with_mean_model_binomial(mock_data_binomial):
 def test_init_with_mean_model_categorical(mock_data_categorical):
     Xs, F, Y = mock_data_categorical
     model = MixMIL.init_with_mean_model(Xs, F, Y, likelihood="categorical")
+    model.train(Xs, F, Y, n_epochs=3)
     assert isinstance(model, MixMIL)
     assert model.likelihood_name == "categorical"
     assert model.n_trials is None
