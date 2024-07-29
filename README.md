@@ -46,7 +46,7 @@ The full BBBC021 dataset can be downloaded [here](https://bbbc.broadinstitute.or
 ```
 @inproceedings{engelmann2024mixed,
   title={Mixed Models with Multiple Instance Learning},
-  author={Engelmann, Jan P and Palma, Alessandro and Tomczak, Jakub M and Theis, Fabian and Casale, Francesco Paolo},
+  author={Engelmann, Jan P. and Palma, Alessandro and Tomczak, Jakub M. and Theis, Fabian and Casale, Francesco Paolo},
   booktitle={International Conference on Artificial Intelligence and Statistics},
   pages={3664--3672},
   year={2024},
