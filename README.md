@@ -44,12 +44,12 @@ The full BBBC021 dataset can be downloaded [here](https://bbbc.broadinstitute.or
 
 ## Citation
 ```
-@misc{engelmann2023attentionbased,
-      title={Attention-based Multi-instance Mixed Models}, 
-      author={Jan P. Engelmann and Alessandro Palma and Jakub M. Tomczak and Fabian J Theis and Francesco Paolo Casale},
-      year={2023},
-      eprint={2311.02455},
-      archivePrefix={arXiv},
-      primaryClass={cs.LG}
+@inproceedings{engelmann2024mixed,
+  title={Mixed Models with Multiple Instance Learning},
+  author={Engelmann, Jan P. and Palma, Alessandro and Tomczak, Jakub M. and Theis, Fabian and Casale, Francesco Paolo},
+  booktitle={International Conference on Artificial Intelligence and Statistics},
+  pages={3664--3672},
+  year={2024},
+  organization={PMLR}
 }
 ```
