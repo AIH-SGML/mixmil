@@ -105,4 +105,7 @@ def get_init_params(Xs, F, Y, likelihood, n_trials):
 
         mu_z, sd_z, var_z, alpha = get_lr_init_params(Xm, Ye, b, Fiv)
 
+    elif likelihood == "normal":
+        raise NotImplementedError("Normal likelihood mean init not implemented")
+
     return mu_z, sd_z, var_z, alpha

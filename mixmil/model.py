@@ -1,6 +1,6 @@
 import numpy as np
 import torch
-from torch.distributions import Binomial, Categorical, LowRankMultivariateNormal
+from torch.distributions import Binomial, Categorical, LowRankMultivariateNormal, Normal
 from torch.distributions.kl import kl_divergence
 from torch.utils.data import DataLoader
 from torch_scatter import scatter_softmax, segment_add_csr
@@ -56,10 +56,14 @@ class MixMIL(torch.nn.Module):
         self.n_trials = n_trials if likelihood == "binomial" else None
         self.is_trained = False
 
+        # Introduce a scale parameter for Normal likelihood
+        if self.likelihood_name == "normal":
+            self.log_scale = torch.nn.Parameter(torch.tensor(0.0))
+
     def init_with_mean_model(Xs, F, Y, likelihood="binomial", n_trials=None, mean_field=False):
         assert (likelihood == "binomial" and n_trials is not None and 0 < n_trials <= 2) or (
-            likelihood == "categorical" and n_trials is None
-        ), f"n_trials must be 1 or 2 to initialize with binomial mean model, got {n_trials=} and {likelihood=}"
+            likelihood in ["categorical", "normal"] and n_trials is None
+        ), f"n_trials must be 1 or 2 for binomial. For {likelihood}, n_trials must be None."
         init_params = get_init_params(Xs, F, Y, likelihood, n_trials)
         Q, K, P = Xs[0].shape[1], F.shape[1], init_params[0].shape[1]
         return MixMIL(Q, K, P, likelihood, n_trials, mean_field, init_params)
@@ -94,6 +98,9 @@ class MixMIL(torch.nn.Module):
             if logits.shape[-1] == 1:
                 logits = torch.cat([-logits, logits], 2)
             return Categorical(logits=logits).log_prob(y).mean()
+        elif self.likelihood_name == "normal":
+            scale = torch.exp(self.log_scale)
+            return Normal(loc=logits, scale=scale).log_prob(y[:, :, None]).sum(1).mean()
 
     def loss(self, u, f, y, kld_w=1.0, return_dict=False):
         logits = f.mm(self.alpha)[:, :, None] + u
@@ -205,4 +212,6 @@ class MixMIL(torch.nn.Module):
         string += f"\n(alpha): Parameter(shape={tuple(self.alpha.shape)})\n"
         string += f"(log_sigma_u): Parameter(shape={tuple(self.log_sigma_u.shape)})\n"
         string += f"(log_sigma_z): Parameter(shape={tuple(self.log_sigma_z.shape)})"
+        if self.likelihood_name == "normal":
+            string += f"\n(log_scale): Parameter(shape={tuple(self.log_scale.shape)})"
         return string
