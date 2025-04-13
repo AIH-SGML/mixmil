@@ -60,8 +60,8 @@ class MixMIL(torch.nn.Module):
         # Introduce a scale parameter for Normal likelihood
         if self.likelihood_name == "normal":
             self.log_scale = torch.nn.Parameter(torch.tensor(0.0))
-        elif self.likelihood_name == "bce":
-            self.pos_weight = pos_weight
+
+        self.pos_weight = pos_weight
 
     def init_with_mean_model(Xs, F, Y, likelihood="binomial", n_trials=None, mean_field=False):
         assert (likelihood == "binomial" and n_trials is not None and 0 < n_trials <= 2) or (
@@ -95,10 +95,10 @@ class MixMIL(torch.nn.Module):
 
     def likelihood(self, logits, y):
         if self.likelihood_name == "binomial":
+            if self.pos_weight is not None:
+                criterion = torch.nn.BCEWithLogitsLoss(pos_weight=self.pos_weight, reduction="none")
+                return criterion(logits, y[:, :, None].expand(-1, -1, logits.shape[-1])).sum(1).mean()
             return Binomial(total_count=self.n_trials, logits=logits).log_prob(y[:, :, None]).sum(1).mean()
-        elif self.likelihood_name == "bce":
-            criterion = torch.nn.BCEWithLogitsLoss(pos_weight=self.pos_weight, reduction="none")
-            return criterion(logits, y[:, :, None].expand(-1, -1, logits.shape[-1])).sum(1).mean()
         elif self.likelihood_name == "categorical":
             logits = logits.permute(0, 2, 1)
             if logits.shape[-1] == 1:
@@ -162,7 +162,7 @@ class MixMIL(torch.nn.Module):
         u = segment_add_csr(w * t, i_ptr)
         return u
 
-    def train(self, X, F, Y, n_epochs=2_000, batch_size=64, lr=1e-3, verbose=True):
+    def train(self, X, F, Y, n_epochs=2_000, batch_size=64, lr=1e-3, verbose=True, pos_weight=None):
         train_loader = DataLoader(
             MILDataset(X, F, Y),
             shuffle=True,
@@ -170,10 +170,13 @@ class MixMIL(torch.nn.Module):
             collate_fn=None if torch.is_tensor(X) else mil_collate_fn,
         )
         optim = torch.optim.Adam(lr=lr, params=self.parameters())
-        if self.likelihood_name == "bce" and self.pos_weight is None:
-            num_pos = Y.sum().item()
-            num_neg = Y.shape[0] - num_pos
-            self.pos_weight = torch.tensor([num_neg / num_pos], dtype=F.dtype, device=F.device)
+        if pos_weight is not None:
+            if torch.is_tensor(pos_weight):
+                self.pos_weight = pos_weight
+            else:
+                num_pos = Y.sum().item()
+                num_neg = Y.shape[0] - num_pos
+                self.pos_weight = torch.tensor([num_neg / num_pos], dtype=F.dtype, device=F.device)
 
         history = []
         for epoch in trange(1, n_epochs + 1, desc="Epoch", disable=not verbose):
@@ -236,5 +239,5 @@ if __name__ == "__main__":
     Xs = [torch.randn(I, Q) for _ in range(N)]
     F = torch.randn(N, K)
     Y = torch.randint(0, 2, (N, 1)).float()
-    model = MixMIL(Q, K, P, likelihood="bce", n_trials=2, mean_field=False, init_params=None, pos_weight=None)
-    model.train(Xs, F, Y, n_epochs=100)
+    model = MixMIL(Q, K, P, likelihood="binomial", n_trials=1, mean_field=False, init_params=None)
+    model.train(Xs, F, Y, n_epochs=100, pos_weight=True)
