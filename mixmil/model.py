@@ -19,7 +19,17 @@ class MixMIL(torch.nn.Module):
     """
 
     def __init__(
-        self, Q, K, P=1, likelihood="binomial", n_trials=2, mean_field=False, init_params=None, pos_weight=None
+        self,
+        Q,
+        K,
+        P=1,
+        likelihood="binomial",
+        n_trials=2,
+        mean_field=False,
+        init_params=None,
+        pos_weight=None,
+        standardize="batch",
+        eps=1e-6,
     ):
         r"""Initialize the MixMil class.
 
@@ -63,13 +73,18 @@ class MixMIL(torch.nn.Module):
 
         self.pos_weight = pos_weight
 
-    def init_with_mean_model(Xs, F, Y, likelihood="binomial", n_trials=None, mean_field=False):
+        assert standardize in ("batch", "fixed", "none")
+        self.standardize = standardize
+        self._scaling = None
+        self.eps = eps
+
+    def init_with_mean_model(Xs, F, Y, likelihood="binomial", n_trials=None, mean_field=False, **kwargs):
         assert (likelihood == "binomial" and n_trials is not None and 0 < n_trials <= 2) or (
             likelihood in ["categorical", "normal"] and n_trials is None
         ), f"n_trials must be 1 or 2 for binomial. For {likelihood}, n_trials must be None."
         init_params = get_init_params(Xs, F, Y, likelihood, n_trials)
         Q, K, P = Xs[0].shape[1], F.shape[1], init_params[0].shape[1]
-        return MixMIL(Q, K, P, likelihood, n_trials, mean_field, init_params)
+        return MixMIL(Q, K, P, likelihood, n_trials, mean_field, init_params, **kwargs)
 
     @property
     def prior_distribution(self):
@@ -97,7 +112,7 @@ class MixMIL(torch.nn.Module):
         if self.likelihood_name == "binomial":
             if self.pos_weight is not None:
                 criterion = torch.nn.BCEWithLogitsLoss(pos_weight=self.pos_weight, reduction="none")
-                return criterion(logits, y[:, :, None].expand(-1, -1, logits.shape[-1])).sum(1).mean()
+                return -criterion(logits, y[:, :, None].expand(-1, -1, logits.shape[-1])).sum(1).mean()
             return Binomial(total_count=self.n_trials, logits=logits).log_prob(y[:, :, None]).sum(1).mean()
         elif self.likelihood_name == "categorical":
             logits = logits.permute(0, 2, 1)
@@ -130,20 +145,45 @@ class MixMIL(torch.nn.Module):
             beta_z = self.qz_mu[:, :, None]
         return beta_u, beta_z
 
+    @torch.inference_mode()
+    def fit_scaling(self, Xs):
+        """Compute global (fixed) scaling from the current posterior means."""
+        beta_u, beta_z = self.get_betas(n_samples=None, predict=True)
+        b = torch.sqrt((beta_z**2).mean(0, keepdim=True))
+        eta = beta_z / b
+        if torch.is_tensor(Xs):
+            u_raw = self._calc_bag_emb_effect_tensor(beta_u, eta, Xs)
+        else:
+            u_raw = self._calc_bag_emb_effect_scatter(beta_u, eta, Xs)
+        mean = u_raw.mean(0)
+        std = u_raw.std(0).clamp_min(self.eps)
+        self._scaling = (mean, std)
+
     def forward(self, Xs, n_samples=8, scaling=None, predict=False):
         beta_u, beta_z = self.get_betas(n_samples, predict)
         b = torch.sqrt((beta_z**2).mean(0, keepdim=True))
         eta = beta_z / b
 
         if torch.is_tensor(Xs):
-            u = self._calc_bag_emb_effect_tensor(beta_u, eta, Xs)
+            u_raw = self._calc_bag_emb_effect_tensor(beta_u, eta, Xs)
         else:
-            u = self._calc_bag_emb_effect_scatter(beta_u, eta, Xs)
+            u_raw = self._calc_bag_emb_effect_scatter(beta_u, eta, Xs)
 
-        mean, std = (u.mean(0), u.std(0)) if scaling is None else scaling
-        if std.isnan().any():
-            std = 1
-        u = b * (u - mean) / std
+        if scaling is not None:
+            mean, std = scaling
+            u = b * (u_raw - mean) / (std + self.eps)
+        elif self.standardize == "batch":
+            mean, std = u_raw.mean(0), u_raw.std(0)
+            std = torch.where(torch.isnan(std), torch.ones_like(std), std).clamp_min(self.eps)
+            u = b * (u_raw - mean) / std
+        elif self.standardize == "fixed":
+            if self._scaling is None:
+                raise RuntimeError("standardize='fixed' but no scaling set. Call fit_scaling(Xs) first.")
+            mean, std = self._scaling
+            u = b * (u_raw - mean) / (std + self.eps)
+        else:  # "none"
+            u = b * u_raw
+
         return u
 
     def _calc_bag_emb_effect_tensor(self, beta_u, eta, Xs):
@@ -179,6 +219,8 @@ class MixMIL(torch.nn.Module):
                 self.pos_weight = torch.tensor([num_neg / num_pos], dtype=F.dtype, device=F.device)
 
         history = []
+        if self.standardize == "fixed":
+            self.fit_scaling(X)
         for epoch in trange(1, n_epochs + 1, desc="Epoch", disable=not verbose):
             for step, (xs, f, y) in enumerate(train_loader):
                 u = self(xs)
